@@ -1,5 +1,4 @@
 let elements = {
-  extensionToggle: document.querySelector('.extension-toggle'),
   extensionContainer: document.querySelector('.extension-container'),
   emotes: document.querySelector('.emotes'),
   emoteCount: document.querySelector('.emote-count'),
@@ -27,11 +26,31 @@ document.querySelectorAll('.tab').forEach(tab => {
   });
 });
 
+function updateTabVisibility() {
+  const counts = {
+    '7tv': all7tvEmotes.length,
+    'twitch': allTwitchEmotes.length,
+    'global': Infinity,
+  };
+
+  let firstVisible = null;
+  document.querySelectorAll('.tab').forEach(tab => {
+    const visible = counts[tab.dataset.tab] > 0;
+    tab.style.display = visible ? '' : 'none';
+    if (visible && !firstVisible) firstVisible = tab.dataset.tab;
+  });
+
+  const activeEl = document.querySelector(`.tab[data-tab="${activeTab}"]`);
+  if (activeEl && activeEl.style.display === 'none' && firstVisible) {
+    activeTab = firstVisible;
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === firstVisible));
+    renderEmotes();
+  }
+}
+
 function buildEmoteElement(emote) {
-  const el = document.createElement('a');
-  el.href = emote.link;
+  const el = document.createElement('div');
   el.classList.add('emote');
-  el.target = '_blank';
 
   const imgContainer = document.createElement('div');
   imgContainer.classList.add('emote-image-container');
@@ -71,6 +90,16 @@ function buildEmoteElement(emote) {
 
   info.appendChild(meta);
   el.appendChild(info);
+
+  el.addEventListener('click', () => {
+    navigator.clipboard.writeText(emote.name).catch(() => {});
+    const fb = document.createElement('div');
+    fb.className = 'copy-feedback';
+    fb.textContent = 'Copied!';
+    el.appendChild(fb);
+    setTimeout(() => fb.remove(), 900);
+  });
+
   return el;
 }
 
@@ -78,11 +107,6 @@ function renderEmotes() {
   const query = elements.searchInput?.value.toLowerCase().trim() || '';
   const sort = elements.sortSelect?.value || 'default';
   const animOnly = elements.animToggle?.dataset.active === 'true';
-
-  if ((activeTab === 'twitch' || activeTab === 'global') && twitchUnavailable) {
-    elements.emotes.innerHTML = '<p class="status-message">Log in to Twitch to see emotes.</p>';
-    return;
-  }
 
   const source = activeTab === '7tv' ? all7tvEmotes : activeTab === 'twitch' ? allTwitchEmotes : allGlobalEmotes;
 
@@ -114,28 +138,18 @@ function normalizeTwitchEmote(e) {
   return { name: e.name, imgSrc, link: `https://www.twitch.tv/`, animated, creator: null, badge: null, timestamp: 0 };
 }
 
+if (typeof Twitch === 'undefined' || !Twitch.ext) {
+  elements.emotes.innerHTML = '<p class="status-message">Twitch helper failed to load. Please refresh.</p>';
+} else {
 Twitch.ext.onAuthorized(async (auth) => {
   const helixToken = Twitch.ext.viewer?.helixToken;
   twitchUnavailable = !helixToken;
 
   const tierLabels = { '1000': { label: 'T1', cls: 'tier1' }, '2000': { label: 'T2', cls: 'tier2' }, '3000': { label: 'T3', cls: 'tier3' } };
 
-  function getCount(tab) {
-    if (tab === '7tv') return all7tvEmotes.length;
-    if (tab === 'twitch') return allTwitchEmotes.length;
-    return allGlobalEmotes.length;
-  }
-
   function updateCount() {
-    if (elements.emoteCount) elements.emoteCount.textContent = `${getCount(activeTab)} emotes`;
-  }
-
-  function stickyFallback() {
-    if (all7tvEmotes.length === 0 && activeTab === '7tv') {
-      const fallback = allTwitchEmotes.length > 0 ? 'twitch' : 'global';
-      activeTab = fallback;
-      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === fallback));
-    }
+    const count = activeTab === '7tv' ? all7tvEmotes.length : activeTab === 'twitch' ? allTwitchEmotes.length : allGlobalEmotes.length;
+    if (elements.emoteCount) elements.emoteCount.textContent = `${count} emotes`;
   }
 
   fetch(`https://7tv.io/v3/users/twitch/${auth.channelId}`)
@@ -155,12 +169,12 @@ Twitch.ext.onAuthorized(async (auth) => {
           };
         });
       }
-      stickyFallback();
+      updateTabVisibility();
       updateCount();
       if (activeTab === '7tv') renderEmotes();
     })
     .catch(() => {
-      stickyFallback();
+      updateTabVisibility();
       if (activeTab === '7tv') renderEmotes();
     });
 
@@ -180,16 +194,19 @@ Twitch.ext.onAuthorized(async (auth) => {
             return emote;
           });
         }
+        updateTabVisibility();
         if (activeTab === 'twitch') { updateCount(); renderEmotes(); }
       })
-      .catch(() => { if (activeTab === 'twitch') renderEmotes(); });
+      .catch(() => {
+        updateTabVisibility();
+        if (activeTab === 'twitch') renderEmotes();
+      });
   }
 
   let globalFetched = false;
   async function fetchGlobalEmotes() {
     if (globalFetched) return;
     globalFetched = true;
-    if (!helixToken) { twitchUnavailable = true; renderEmotes(); return; }
     elements.emotes.innerHTML = Array(12).fill(
       `<div class="skeleton"><div class="skeleton-img"></div><div class="skeleton-line"></div><div class="skeleton-line short"></div></div>`
     ).join('');
@@ -226,3 +243,4 @@ Twitch.ext.onAuthorized(async (auth) => {
     });
   }
 });
+} // end Twitch.ext check

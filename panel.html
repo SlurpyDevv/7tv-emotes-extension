@@ -13,7 +13,11 @@
   <body>
     <div class="extension-container">
       <div class="header">
-        <img src="img/logo.svg" class="header-logo" />
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 36" class="header-logo">
+          <text font-family="'Inter','Segoe UI',sans-serif" font-size="26" font-weight="800" letter-spacing="-0.5">
+            <tspan x="0" y="27" fill="white">Channel</tspan><tspan fill="#9b59ff">Emotes</tspan>
+          </text>
+        </svg>
         <span class="emote-count"></span>
       </div>
       <div class="tabs">
@@ -30,7 +34,7 @@
             <option value="za">Z → A</option>
             <option value="newest">Newest first</option>
           </select>
-          <button class="anim-toggle" data-active="false">GIF only</button>
+          <button class="anim-toggle" data-active="false">Animated</button>
         </div>
       </div>
       <div class="emotes"></div>
