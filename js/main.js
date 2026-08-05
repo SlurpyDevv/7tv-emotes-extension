@@ -92,7 +92,22 @@ function buildEmoteElement(emote) {
   el.appendChild(info);
 
   el.addEventListener('click', () => {
-    navigator.clipboard.writeText(emote.name).catch(() => {});
+    const name = emote.name;
+    const fallbackCopy = () => {
+      const ta = document.createElement('textarea');
+      ta.value = name;
+      ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none;';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try { document.execCommand('copy'); } catch (_) {}
+      ta.remove();
+    };
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(name).catch(fallbackCopy);
+    } else {
+      fallbackCopy();
+    }
     const fb = document.createElement('div');
     fb.className = 'copy-feedback';
     fb.textContent = 'Copied!';
